@@ -1,0 +1,54 @@
+{
+  "name": "perch",
+  "productName": "Perch",
+  "version": "1.0.0",
+  "description": "Perch —— 基于 Bongo Cat 的桌面宠物计划提醒工具：每日/每周/单次计划提醒、日历便签、空闲随机提醒、可换肤",
+  "main": "src/main/index.js",
+  "author": "Vi0let119",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "pack:preset": "node scripts/build-preset-pack.js",
+    "dist": "electron-builder --win",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "pngjs": "^7.0.0"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "pixi-live2d-display": "^0.4.0",
+    "pixi.js": "^6.5.10"
+  },
+  "build": {
+    "appId": "com.violet.perch",
+    "productName": "Perch",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/packs",
+        "to": "packs"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}

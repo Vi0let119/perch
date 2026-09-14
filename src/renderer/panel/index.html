@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' petpack: data:; connect-src 'self' petpack:; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'" />
+  <title>Perch · 管理面板</title>
+  <link rel="stylesheet" href="panel.css" />
+</head>
+<body>
+  <header>
+    <div class="logo"><span class="paw">🐦</span><b>Perch</b></div>
+    <nav id="tabs">
+      <button data-tab="today" class="active">今日计划</button>
+      <button data-tab="calendar">日历便签</button>
+      <button data-tab="plans">计划管理</button>
+      <button data-tab="json">JSON 导入导出</button>
+      <button data-tab="packs">外观</button>
+      <button data-tab="settings">设置</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- 今日计划 -->
+    <section class="tab active" id="tab-today">
+      <h2 class="tab-title" id="today-title">今日计划</h2>
+      <div class="tab-sub" id="today-sub"></div>
+      <div class="progress-bar"><div id="today-progress" style="width:0%"></div></div>
+      <div class="card">
+        <h3>🌙 全天 / 便签 <span class="badge-num" id="today-allday-num"></span></h3>
+        <div id="today-allday"></div>
+      </div>
+      <div class="card">
+        <h3>⏰ 时间段 <span class="badge-num" id="today-timed-num"></span></h3>
+        <div id="today-timed"></div>
+      </div>
+    </section>
+
+    <!-- 日历便签 -->
+    <section class="tab" id="tab-calendar">
+      <h2 class="tab-title">日历便签</h2>
+      <div class="tab-sub">点击日期查看与写入内容，当天猫猫的气泡里也会提醒</div>
+      <div class="cal-layout">
+        <div class="card">
+          <div class="cal-head">
+            <b id="cal-label">2026年9月</b>
+            <div class="cal-nav">
+              <button id="cal-prev" title="上个月">‹</button>
+              <button id="cal-today" title="回到本月">今天</button>
+              <button id="cal-next" title="下个月">›</button>
+            </div>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+        <div class="card" id="day-editor">
+          <div id="day-title">选择一个日期</div>
+          <div class="day-items" id="day-items"></div>
+          <h3 style="margin-top:14px">✏️ 在这天写一条</h3>
+          <div class="form-row">
+            <input type="text" id="once-title" class="sz-title" placeholder="标题（必填）" maxlength="100" />
+          </div>
+          <div class="form-row">
+            <input type="date" id="once-date" />
+            <input type="time" id="once-start" title="开始（留空=全天）" />
+            <input type="time" id="once-end" title="结束" />
+          </div>
+          <div class="form-row">
+            <input type="text" id="once-note" class="sz-title" placeholder="便签内容（可选）" maxlength="500" />
+          </div>
+          <div class="form-row">
+            <button class="btn" id="once-save">添加到这一天</button>
+            <button class="btn ghost hidden" id="once-cancel">取消编辑</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 计划管理 -->
+    <section class="tab" id="tab-plans">
+      <h2 class="tab-title">计划管理</h2>
+      <div class="tab-sub">管理三类重复规划，也可以在「JSON 导入导出」里批量写入</div>
+
+      <div class="card">
+        <h3>🔁 每日重复 <span class="badge-num" id="num-daily"></span></h3>
+        <div class="form-row">
+          <input type="text" id="daily-title" class="sz-title" placeholder="标题（必填）" maxlength="100" />
+          <input type="time" id="daily-start" title="开始（留空=全天）" />
+          <input type="time" id="daily-end" />
+          <button class="btn" id="daily-save">添加</button>
+        </div>
+        <div class="form-row">
+          <input type="text" id="daily-note" class="sz-title" placeholder="备注（可选）" maxlength="500" />
+        </div>
+        <div id="list-daily"></div>
+      </div>
+
+      <div class="card">
+        <h3>📆 每周重复 <span class="badge-num" id="num-weekly"></span></h3>
+        <div class="form-row">
+          <input type="text" id="weekly-title" class="sz-title" placeholder="标题（必填）" maxlength="100" />
+          <input type="time" id="weekly-start" title="开始（留空=全天）" />
+          <input type="time" id="weekly-end" />
+          <button class="btn" id="weekly-save">添加</button>
+        </div>
+        <div class="form-row">
+          <div class="wd-picker" id="weekly-days"></div>
+        </div>
+        <div class="form-row">
+          <input type="text" id="weekly-note" class="sz-title" placeholder="备注（可选）" maxlength="500" />
+        </div>
+        <div id="list-weekly"></div>
+      </div>
+
+      <div class="card">
+        <h3>📌 单次计划 <span class="badge-num" id="num-once"></span></h3>
+        <div class="form-row">
+          <input type="date" id="once2-date" />
+          <input type="text" id="once2-title" class="sz-title" placeholder="标题（必填）" maxlength="100" />
+          <input type="time" id="once2-start" title="开始（留空=全天）" />
+          <input type="time" id="once2-end" />
+          <button class="btn" id="once2-save">添加</button>
+        </div>
+        <div class="form-row">
+          <input type="text" id="once2-note" class="sz-title" placeholder="备注（可选）" maxlength="500" />
+        </div>
+        <div id="list-once"></div>
+      </div>
+    </section>
+
+    <!-- JSON -->
+    <section class="tab" id="tab-json">
+      <h2 class="tab-title">JSON 导入 / 导出</h2>
+      <div class="tab-sub">支持符合格式的文件导入，也可以直接在下面编辑后应用</div>
+      <div class="card">
+        <textarea id="json-text" spellcheck="false"></textarea>
+        <div class="json-toolbar">
+          <button class="btn ghost" id="json-load">载入当前计划</button>
+          <button class="btn ghost" id="json-file">从文件导入…</button>
+          <select id="json-strategy" title="导入策略">
+            <option value="merge">合并到现有计划</option>
+            <option value="replace">替换全部计划</option>
+          </select>
+          <button class="btn green" id="json-apply">应用到应用</button>
+          <button class="btn ghost" id="json-save">导出为文件…</button>
+          <button class="btn ghost" id="json-copy">复制</button>
+        </div>
+        <div id="json-msg"></div>
+        <details class="format">
+          <summary>📄 JSON 格式说明（点击展开）</summary>
+          <p>顶层对象包含三个数组，均可省略。时间格式 HH:MM；开始/结束都留空 = 全天任务；weekdays 用 0-6 表示周日到周六。</p>
+          <pre>{
+  "version": 1,
+  "daily": [
+    { "title": "早读", "start": "08:00", "end": "08:40", "note": "" }
+  ],
+  "weekly": [
+    { "title": "周会", "weekdays": [1], "start": "10:00", "end": "11:00", "note": "" }
+  ],
+  "once": [
+    { "title": "交材料", "date": "2026-09-20", "start": "", "end": "", "note": "记得带合同" }
+  ]
+}</pre>
+        </details>
+      </div>
+    </section>
+
+    <!-- 外观 -->
+    <section class="tab" id="tab-packs">
+      <h2 class="tab-title">外观</h2>
+      <div class="tab-sub">管理桌宠皮肤资源包，支持导入文件夹或 zip（也兼容 Bongo Cat Mver 皮肤目录）</div>
+      <div class="pack-toolbar">
+        <button class="btn" id="pack-import">📦 导入资源包…</button>
+        <div class="scale-row" style="flex:1;min-width:260px">
+          <span style="font-size:13px">缩放</span>
+          <input type="range" id="scale-range" min="0.35" max="0.8" step="0.05" />
+          <span id="scale-val">55%</span>
+        </div>
+      </div>
+      <div class="pack-list" id="pack-list"></div>
+
+      <div class="card hidden" id="pack-custom">
+        <h3>🎮 自定义人物 <span class="badge-num" id="custom-count"></span></h3>
+        <div class="tab-sub">对应皮肤 config 的可调项：开关实时生效、按皮肤保存；改回原状就把开关关掉</div>
+        <div id="custom-params"></div>
+
+        <div id="pack-custom-cfg" class="hidden">
+          <h3 style="margin-top:14px">⚙️ config 校准项 <span style="font-weight:400;font-size:11px;color:var(--ink-3)">（来自该皮肤 config.json，各皮肤数值不同）</span></h3>
+          <div class="form-row">
+            <span style="font-size:13px;width:70px">缩放修正</span>
+            <input type="range" id="cfg-correct" min="0.5" max="3" step="0.01" style="flex:1" />
+            <span id="cfg-correct-val" style="width:48px;font-size:12px">1.00×</span>
+            <span id="cfg-suggest" class="cfg-suggest hidden"></span>
+          </div>
+          <div class="set-row">
+            <div class="set-label"><b>水平翻转</b><span>l2d_horizontal_flip</span></div>
+            <label class="switch"><input type="checkbox" id="cfg-flip" /><i></i></label>
+          </div>
+        </div>
+
+        <h3 style="margin-top:14px">📍 位置微调 <span style="font-weight:400;font-size:11px;color:var(--ink-3)">（对应 config 的 l2d_offset）</span></h3>
+        <div class="form-row">
+          <span style="font-size:13px;width:18px">X</span>
+          <input type="range" id="fit-x" min="-100" max="100" step="1" style="flex:1" />
+          <span id="fit-x-val" style="width:36px;font-size:12px">0</span>
+        </div>
+        <div class="form-row">
+          <span style="font-size:13px;width:18px">Y</span>
+          <input type="range" id="fit-y" min="-100" max="100" step="1" style="flex:1" />
+          <span id="fit-y-val" style="width:36px;font-size:12px">0</span>
+        </div>
+        <button class="btn ghost" id="fit-reset">重置位置</button>
+      </div>
+    </section>
+
+    <!-- 设置 -->
+    <section class="tab" id="tab-settings">
+      <h2 class="tab-title">设置</h2>
+      <div class="tab-sub"></div>
+      <div class="card">
+        <div class="set-row">
+          <div class="set-label"><b>窗口置顶</b><span>猫猫始终显示在其他窗口之上</span></div>
+          <label class="switch"><input type="checkbox" id="set-top" /><i></i></label>
+        </div>
+        <div class="set-row">
+          <div class="set-label"><b>开机自启</b><span>登录 Windows 后自动运行桌宠</span></div>
+          <label class="switch"><input type="checkbox" id="set-autostart" /><i></i></label>
+        </div>
+        <div class="set-row">
+          <div class="set-label"><b>空闲计划气泡</b><span>当前时段有计划时在猫头顶常驻显示，可打勾</span></div>
+          <label class="switch"><input type="checkbox" id="set-bubble" /><i></i></label>
+        </div>
+        <div class="set-row">
+          <div class="set-label"><b>提醒表情</b><span>计划开始时猫切换成提醒表情</span></div>
+          <label class="switch"><input type="checkbox" id="set-remindface" /><i></i></label>
+        </div>
+        <div class="set-row">
+          <div class="set-label"><b>爪子敲击动画</b><span>空闲时猫爪在键盘上敲击（部分皮肤模型可能导致手部异常，可关闭）</span></div>
+          <label class="switch"><input type="checkbox" id="set-paw" /><i></i></label>
+        </div>
+        <div class="set-row">
+          <div class="set-label"><b>兼容模式（关闭硬件加速）</b><span>保持开启最稳定；关闭可大幅降低 CPU 占用，但若出现白底/闪烁请重新开启。<b>改动后需重启应用生效</b></span></div>
+          <label class="switch"><input type="checkbox" id="set-gpu" /><i></i></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>💡 空闲随机提醒</h3>
+        <div class="tab-sub">完全空闲（当前没有计划要展示）时，随机间隔提醒你喝水、活动等</div>
+        <div class="set-row">
+          <div class="set-label"><b>启用</b><span>关闭后不再随机提醒</span></div>
+          <label class="switch"><input type="checkbox" id="set-reminder" /><i></i></label>
+        </div>
+        <div class="form-row">
+          <span style="font-size:13px;width:62px">间隔（分）</span>
+          <input type="number" id="rm-min" min="1" max="600" style="width:76px" />
+          <span style="font-size:13px">～</span>
+          <input type="number" id="rm-max" min="1" max="600" style="width:76px" />
+          <button class="btn ghost" id="rm-test">立即测试</button>
+        </div>
+        <div class="form-row">
+          <textarea id="rm-messages" rows="5" placeholder="每行一条提醒文案" style="flex:1;width:100%"></textarea>
+        </div>
+        <div class="form-row">
+          <button class="btn" id="rm-save">保存提醒设置</button>
+          <span style="font-size:12px;color:var(--ink-3)">修改文案后请点保存</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="set-row">
+          <div class="set-label"><b>数据文件夹</b><span>plans.json / state.json / 已安装资源包</span></div>
+          <button class="btn ghost" id="open-data">打开</button>
+        </div>
+        <div class="set-row">
+          <div class="set-label"><b>退出应用</b><span>彻底退出（关闭面板只是隐藏到托盘）</span></div>
+          <button class="btn danger" id="quit-app">退出</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+
+  <script src="../vendor/live2dcubismcore.min.js"></script>
+  <script src="../vendor/pixi.min.js"></script>
+  <script src="../vendor/pixi-live2d-cubism4.min.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>
