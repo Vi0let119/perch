@@ -71,21 +71,21 @@ class WindowManager {
     this.guardRenderer(this.petWin, 'pet');
     this.petWin.on('closed', () => { this.petWin = null; });
 
-    // ---- 拖拽：渲染进程提供光标屏幕坐标，主进程按「按下时的窗口位置 + 位移增量」定位 ----
-    // 不用 screen.getCursorScreenPoint() 轮询：异步采样偏差会造成拖动滞后与边缘漂移
-    ipcMain.on('pet:drag-start', (e, sx, sy) => {
-      if (!this.petWin) return;
-      this.drag = { sx: Number(sx) || 0, sy: Number(sy) || 0, pos: this.petWin.getPosition() };
+    // ---- 拖拽：主进程自采样光标增量 ----
+    // 不要使用渲染层的 event.screenX/screenY：混合 DPI 多显示器下（笔记本屏常有
+    // 125%/150% 缩放），Chromium 报告的屏幕坐标与 setPosition 期望的坐标不是同一套
+    // 换算，窗口一动报告值又随窗口位置变化，形成正反馈 —— 表现为"按住不动也缓慢
+    // 漂移"或"拖动时窗口跑得比光标快"。这里主进程自己采样光标（与 setPosition 同一
+    // 坐标系），按增量移动：光标静止 ⇒ 增量为零 ⇒ 结构上不可能漂移。
+    // 渲染层拖动期间只发 drag-alive 心跳与结束信号，不传任何坐标。
+    ipcMain.on('pet:drag-start', () => {
+      if (!this.petWin || this.drag) return;
+      this.drag = { last: screen.getCursorScreenPoint(), moved: 0 };
+      this.dragTimer = setInterval(() => this.dragTick(), 16);
       this.touchDragWatchdog();
     });
-    ipcMain.on('pet:drag-move', (e, sx, sy) => {
-      if (!this.drag || !this.petWin) return;
-      const x = this.drag.pos[0] + (Number(sx) || 0) - this.drag.sx;
-      const y = this.drag.pos[1] + (Number(sy) || 0) - this.drag.sy;
-      this.petWin.setPosition(Math.round(x), Math.round(y));
-      this.touchDragWatchdog();
-    });
-    ipcMain.on('pet:drag-end', () => this.endDrag());
+    ipcMain.on('pet:drag-alive', () => this.touchDragWatchdog());
+    ipcMain.on('pet:drag-end', () => this.endDrag(true));
     ipcMain.on('pet:set-clickthrough', (e, val) => {
       if (this.petWin) this.petWin.setIgnoreMouseEvents(!!val, { forward: true });
     });
@@ -99,23 +99,38 @@ class WindowManager {
     return this.petWin;
   }
 
-  // 拖动看门狗：渲染进程若因穿透/失焦等原因漏发 drag-end，600ms 无消息即自动收尾，
-  // 避免窗口无限跟随光标缓慢漂移
-  touchDragWatchdog() {
-    clearTimeout(this.dragWatchdog);
-    this.dragWatchdog = setTimeout(() => this.endDrag(), 600);
+  // 拖动节拍：采样光标 → 按增量移动窗口（光标不动则不做任何事）
+  dragTick() {
+    if (!this.drag || !this.petWin || this.petWin.isDestroyed()) return this.endDrag(false);
+    const c = screen.getCursorScreenPoint();
+    const dx = c.x - this.drag.last.x;
+    const dy = c.y - this.drag.last.y;
+    if (!dx && !dy) return;
+    this.drag.last = c;
+    this.drag.moved += Math.abs(dx) + Math.abs(dy);
+    const [px, py] = this.petWin.getPosition();
+    this.petWin.setPosition(Math.round(px + dx), Math.round(py + dy));
   }
 
-  endDrag() {
+  // 看门狗：渲染层每 80ms 发一次 drag-alive 心跳；若 600ms 无任何消息
+  // （渲染层崩溃/事件全部丢失），自动收尾，避免窗口无限跟随光标
+  touchDragWatchdog() {
     clearTimeout(this.dragWatchdog);
+    this.dragWatchdog = setTimeout(() => this.endDrag(false), 600);
+  }
+
+  // viaClick：由渲染层 mouseup 显式结束（可能是单击）；看门狗等异常路径结束不算单击
+  endDrag(viaClick) {
+    clearTimeout(this.dragWatchdog);
+    if (this.dragTimer) { clearInterval(this.dragTimer); this.dragTimer = null; }
     if (!this.drag) return;
+    const wasClick = viaClick && this.drag.moved < 8;
     this.drag = null;
     if (this.petWin && !this.petWin.isDestroyed()) {
       const [x, y] = this.petWin.getPosition();
       this.ctx.settings.update({ position: { x, y } });
-    }
-    if (this.petWin && !this.petWin.isDestroyed()) {
       this.petWin.webContents.send('drag-stopped');
+      if (wasClick) this.ctx.showPanel('today');   // 位移极小 = 单击 → 打开面板
     }
   }
 

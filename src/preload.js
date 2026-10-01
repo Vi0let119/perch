@@ -40,8 +40,8 @@ contextBridge.exposeInMainWorld('api', {
   // 桌宠运行时
   petRuntime: () => ipcRenderer.invoke('pet:runtime'),
   petClick: () => ipcRenderer.invoke('pet:click'),
-  dragStart: (sx, sy) => ipcRenderer.send('pet:drag-start', sx, sy),
-  dragMove: (sx, sy) => ipcRenderer.send('pet:drag-move', sx, sy),
+  dragStart: () => ipcRenderer.send('pet:drag-start'),
+  dragAlive: () => ipcRenderer.send('pet:drag-alive'),
   dragEnd: () => ipcRenderer.send('pet:drag-end'),
   setClickThrough: (v) => ipcRenderer.send('pet:set-clickthrough', v),
   fixTransparency: () => ipcRenderer.send('pet:fix-transparency'),

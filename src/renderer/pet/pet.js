@@ -572,13 +572,13 @@ function renderBubble(state) {
 }
 
 // ---------- 交互：拖拽 / 点击 / 右键 / 点击穿透 ----------
+// 拖动的位移计算完全在主进程（自采样光标增量）。渲染层不传任何坐标 ——
+// 混合 DPI 多显示器下 event.screenX 与主进程 setPosition 的坐标系不一致，
+// 会产生反馈式漂移（详见 windows.js 拖拽段注释）。
 function initInteraction() {
   const pet = $('pet');
   let dragging = false;
-  let moved = 0;
-  let lastX = 0, lastY = 0;
-  let dragRaf = 0;
-  let pendingDrag = null;
+  let heartbeat = null;
   let clickthrough = true;
   let lastClientX = 0, lastClientY = 0;
 
@@ -591,45 +591,30 @@ function initInteraction() {
   const endDrag = () => {
     if (!dragging) return;
     dragging = false;
-    if (dragRaf) { cancelAnimationFrame(dragRaf); dragRaf = 0; }
-    pendingDrag = null;
+    clearInterval(heartbeat);
+    heartbeat = null;
     window.api.dragEnd();
     setPaused('drag', false);
     // 拖动中指针可能已离开猫身，结束后重新按当前位置判定穿透
     const el = document.elementFromPoint(lastClientX, lastClientY);
     updateClickthrough(!(el && el.closest('#pet, #bubble')));
-    if (moved < 6) window.api.petClick();
   };
 
   pet.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || dragging) return;
     dragging = true;
-    moved = 0;
-    lastX = e.screenX;
-    lastY = e.screenY;
     lastClientX = e.clientX;
     lastClientY = e.clientY;
-    window.api.dragStart(e.screenX, e.screenY);
+    window.api.dragStart();
     setPaused('drag', true);   // 拖动时暂停 Live2D 渲染，画面静止（消除拖动卡顿）
+    // 心跳：证明按住状态仍在；位移与结束判定由主进程负责
+    heartbeat = setInterval(() => window.api.dragAlive(), 80);
   });
 
   window.addEventListener('mousemove', (e) => {
     lastClientX = e.clientX;
     lastClientY = e.clientY;
-    if (dragging) {
-      moved += Math.abs(e.screenX - lastX) + Math.abs(e.screenY - lastY);
-      lastX = e.screenX;
-      lastY = e.screenY;
-      // rAF 节流合并：高回报率鼠标也不会把主线程打满
-      pendingDrag = { x: e.screenX, y: e.screenY };
-      if (!dragRaf) {
-        dragRaf = requestAnimationFrame(() => {
-          dragRaf = 0;
-          if (dragging && pendingDrag) window.api.dragMove(pendingDrag.x, pendingDrag.y);
-        });
-      }
-      return;   // 拖动期间不切换点击穿透（否则会丢失 mouseup，导致窗口无限漂移）
-    }
+    if (dragging) return;   // 拖动期间不切换点击穿透（否则会丢失 mouseup，导致窗口无限漂移）
     const el = document.elementFromPoint(e.clientX, e.clientY);
     updateClickthrough(!(el && el.closest('#pet, #bubble')));
   });
@@ -649,12 +634,20 @@ function initInteraction() {
 
   const closeBtn = $('bubble-close');
   if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); dismissBubble(); });
+
+  // 主进程看门狗收尾（渲染层事件全丢时的兜底）：同步清理渲染层的拖动状态，
+  // 否则渲染层仍认为在拖动，后续 mousedown 会被忽略、穿透状态被冻结
+  window.api.on('drag-stopped', () => {
+    dragging = false;
+    clearInterval(heartbeat);
+    heartbeat = null;
+    setPaused('drag', false);
+  });
 }
 
 // ---------- 启动 ----------
 window.api.on('bubble', renderBubble);
 window.api.on('idle-reminder', renderReminder);
-window.api.on('drag-stopped', () => { /* 主进程看门狗收尾，仅用于重置内部态 */ });
 window.api.on('pack-changed', () => {
   lastBubbleIds = '';
   dismissedIds = new Set();
