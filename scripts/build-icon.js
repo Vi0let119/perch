@@ -1,162 +1,58 @@
-// 生成应用图标：Perch —— 粉色圆角方块 + 白色小鸟停在横杆上（纯代码绘制，无第三方素材）
-// 输出 assets/icon.png（256）与 assets/icon.ico（多尺寸）
-// 用法: node scripts/build-icon.js  [--preview]  （--preview 额外打印 ASCII 缩略图便于检查造型）
+// 生成 Perch 应用图标：奶油底 + 橙红日轮 + 抽象飞鸟笔触 + 水面倒影（纯代码绘制，无第三方素材）
+// 输出 assets/icon.png（256）与 assets/icon.ico（16/32/48/64/128/256）
+// 用法: node scripts/build-icon.js [--preview]
 const fs = require('fs');
 const path = require('path');
-const { PNG } = require('pngjs');
 const lib = require('./icon-lib');
 
-const ROOT = path.join(__dirname, '..');
-const OUT_PNG = path.join(ROOT, 'assets', 'icon.png');
-const OUT_ICO = path.join(ROOT, 'assets', 'icon.ico');
+const OUT_PNG = path.join(__dirname, '..', 'assets', 'icon.png');
+const OUT_ICO = path.join(__dirname, '..', 'assets', 'icon.ico');
 const SHOW_PREVIEW = process.argv.includes('--preview');
+const u = (v) => lib.u(v);
 
-const MASTER = 1024;
-const OUT = 256;
+const buf = lib.createCanvas();
 
-const buf = new Float32Array(MASTER * MASTER * 4);
-const u = (v) => (v / 256) * MASTER;   // 以 256 为设计基准
-
-function blendAt(x, y, r, g, b, a) {
-  if (x < 0 || y < 0 || x >= MASTER || y >= MASTER || a <= 0) return;
-  const i = (y * MASTER + x) * 4;
-  const sa = a / 255, da = buf[i + 3] / 255;
-  const oa = sa + da * (1 - sa);
-  if (oa <= 0) return;
-  buf[i] = (r * sa + buf[i] * da * (1 - sa)) / oa;
-  buf[i + 1] = (g * sa + buf[i + 1] * da * (1 - sa)) / oa;
-  buf[i + 2] = (b * sa + buf[i + 2] * da * (1 - sa)) / oa;
-  buf[i + 3] = oa * 255;
-}
-
-function inRoundRect(x, y, x0, y0, x1, y1, radius) {
-  if (x < x0 || y < y0 || x >= x1 || y >= y1) return false;
-  const cx = x < x0 + radius ? x0 + radius : x >= x1 - radius ? x1 - radius - 1 : x;
-  const cy = y < y0 + radius ? y0 + radius : y >= y1 - radius ? y1 - radius - 1 : y;
-  if (cx === x && cy === y) return true;
-  const dx = x - cx, dy = y - cy;
-  return dx * dx + dy * dy <= radius * radius;
-}
-
-function roundRect(x0, y0, x1, y1, radius, color) {
-  const [r, g, b, a = 255] = color;
-  for (let y = Math.floor(y0); y < Math.ceil(y1); y++) {
-    for (let x = Math.floor(x0); x < Math.ceil(x1); x++) {
-      if (inRoundRect(x, y, x0, y0, x1, y1, radius)) blendAt(x, y, r, g, b, a);
-    }
+// 奶油底
+lib.gradientRoundRect(buf, u(6), u(6), u(250), u(250), u(54), [246, 240, 229], [236, 226, 209]);
+// 日轮（同心三层）
+lib.circle(buf, u(128), u(104), u(58), [240, 122, 92, 255]);
+lib.circle(buf, u(128), u(104), u(45), [233, 92, 66, 255]);
+lib.circle(buf, u(128), u(104), u(32), [224, 70, 48, 255]);
+// 抽象飞鸟三只（书法弧线笔触，中段粗两端细；大小渐变，飞离太阳）
+const INK = [44, 39, 36, 255];
+function strokeArc(x0, y0, x1, y1, bulge, rMax) {
+  const mx = (x0 + x1) / 2, my = (y0 + y1) / 2 - bulge;
+  const steps = 80;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const x = (1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * mx + t * t * x1;
+    const y = (1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * my + t * t * y1;
+    const w = Math.sin(t * Math.PI);
+    lib.circle(buf, u(x), u(y), u(rMax * Math.max(w, 0.22)), INK);
   }
 }
-
-function circle(cx, cy, radius, color) {
-  const [r, g, b, a = 255] = color;
-  for (let y = Math.floor(cy - radius); y <= Math.ceil(cy + radius); y++) {
-    for (let x = Math.floor(cx - radius); x <= Math.ceil(cx + radius); x++) {
-      const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
-      if (dx * dx + dy * dy <= radius * radius) blendAt(x, y, r, g, b, a);
-    }
-  }
+function birdStroke(cx, cy, w, rMax) {
+  strokeArc(cx - w / 2, cy + w * 0.16, cx, cy + w * 0.30, w * 0.22, rMax);
+  strokeArc(cx, cy + w * 0.30, cx + w / 2, cy + w * 0.16, w * 0.22, rMax);
 }
+birdStroke(118, 86, 56, 5.5);    // 大鸟（压在日轮前）
+birdStroke(174, 60, 38, 4.2);    // 中鸟（跨日轮边缘）
+birdStroke(206, 44, 26, 3.2);    // 小鸟（飞出画面）
+// 地平线
+lib.roundRect(buf, u(40), u(176), u(216), u(181), u(2.5), INK);
+// 日轮在水面上的倒影（三道渐短横线）
+lib.roundRect(buf, u(88), u(190), u(168), u(193), u(1.5), [224, 70, 48, 150]);
+lib.roundRect(buf, u(102), u(200), u(154), u(202.5), u(1.5), [224, 70, 48, 110]);
+lib.roundRect(buf, u(114), u(210), u(142), u(212), u(1.5), [224, 70, 48, 80]);
 
-function triangle(ax, ay, bx, by, cx, cy, color) {
-  const [r, g, b, a = 255] = color;
-  const minX = Math.floor(Math.min(ax, bx, cx)), maxX = Math.ceil(Math.max(ax, bx, cx));
-  const minY = Math.floor(Math.min(ay, by, cy)), maxY = Math.ceil(Math.max(ay, by, cy));
-  const d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
-  if (Math.abs(d) < 1e-6) return;
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const w1 = ((by - cy) * (x + 0.5 - cx) + (cx - bx) * (y + 0.5 - cy)) / d;
-      const w2 = ((cy - ay) * (x + 0.5 - cx) + (ax - cx) * (y + 0.5 - cy)) / d;
-      if (w1 >= 0 && w2 >= 0 && 1 - w1 - w2 >= 0) blendAt(x, y, r, g, b, a);
-    }
-  }
-}
-
-function gradientRoundRect(x0, y0, x1, y1, radius, top, bottom) {
-  for (let y = Math.floor(y0); y < Math.ceil(y1); y++) {
-    const t = (y - y0) / (y1 - y0);
-    const r = top[0] + (bottom[0] - top[0]) * t;
-    const g = top[1] + (bottom[1] - top[1]) * t;
-    const b = top[2] + (bottom[2] - top[2]) * t;
-    for (let x = Math.floor(x0); x < Math.ceil(x1); x++) {
-      if (inRoundRect(x, y, x0, y0, x1, y1, radius)) blendAt(x, y, r, g, b, 255);
-    }
-  }
-}
-
-// ==== 造型参数（256 设计基准）====
-const WHITE = [255, 255, 255, 255];
-const BODY = { x: 130, y: 118, r: 56 };
-const BAR = { x0: 34, y0: 170, x1: 222, y1: 188, r: 8 };
-const EYE = { x: 156, y: 100, r: 7 };
-
-// 背景
-const pad = 6;
-gradientRoundRect(u(pad), u(pad), u(256 - pad), u(256 - pad), u(54), [255, 178, 200], [229, 102, 146]);
-
-// 横杆
-roundRect(u(BAR.x0), u(BAR.y0), u(BAR.x1), u(BAR.y1), u(BAR.r), WHITE);
-
-// 尾巴：从身体左下方伸出，斜向左下
-triangle(u(102), u(130), u(42), u(174), u(120), u(166), WHITE);
-
-// 身体
-circle(u(BODY.x), u(BODY.y), u(BODY.r), WHITE);
-
-// 喙：短而圆钝，指向右
-triangle(u(172), u(106), u(208), u(119), u(172), u(132), WHITE);
-
-// 眼睛（挖背景色）
-circle(u(EYE.x), u(EYE.y), u(EYE.r), [214, 88, 130, 255]);
-
-// ==== 降采样 ====
-function downscale(size) {
-  const s = MASTER / size;
-  const out = new PNG({ width: size, height: size });
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      let r = 0, g = 0, b = 0, a = 0;
-      const n = s * s;
-      for (let dy = 0; dy < s; dy++) {
-        for (let dx = 0; dx < s; dx++) {
-          const i = ((y * s + dy) * MASTER + (x * s + dx)) * 4;
-          const av = buf[i + 3] / 255;
-          r += buf[i] * av; g += buf[i + 1] * av; b += buf[i + 2] * av; a += av;
-        }
-      }
-      const di = (y * size + x) * 4;
-      if (a <= 0) { out.data[di] = out.data[di + 1] = out.data[di + 2] = out.data[di + 3] = 0; continue; }
-      out.data[di] = Math.round(r / a);
-      out.data[di + 1] = Math.round(g / a);
-      out.data[di + 2] = Math.round(b / a);
-      out.data[di + 3] = Math.round((a / n) * 255);
-    }
-  }
-  return PNG.sync.write(out);
-}
-
-fs.writeFileSync(OUT_PNG, downscale(OUT));
+// 输出
+const png256 = lib.downscale(buf, 256);
+fs.writeFileSync(OUT_PNG, png256);
 console.log('已生成', OUT_PNG);
 
 const sizes = [16, 32, 48, 64, 128, 256];
-const images = sizes.map((s) => ({ size: s, data: downscale(s) }));
-const header = Buffer.alloc(6);
-header.writeUInt16LE(0, 0); header.writeUInt16LE(1, 2); header.writeUInt16LE(images.length, 4);
-let offset = 6 + images.length * 16;
-const dir = Buffer.alloc(images.length * 16);
-images.forEach((img, i) => {
-  const o = i * 16;
-  dir.writeUInt8(img.size >= 256 ? 0 : img.size, o);
-  dir.writeUInt8(img.size >= 256 ? 0 : img.size, o + 1);
-  dir.writeUInt8(0, o + 2); dir.writeUInt8(0, o + 3);
-  dir.writeUInt16LE(1, o + 4); dir.writeUInt16LE(32, o + 6);
-  dir.writeUInt32LE(img.data.length, o + 8); dir.writeUInt32LE(offset, o + 12);
-  offset += img.data.length;
-});
-fs.writeFileSync(OUT_ICO, Buffer.concat([header, dir, ...images.map((i) => i.data)]));
+const ico = lib.packIco(sizes.map((s) => ({ size: s, data: lib.downscale(buf, s) })));
+fs.writeFileSync(OUT_ICO, ico);
 console.log('已生成', OUT_ICO, `（${sizes.join('/')}）`);
 
-// ==== ASCII 预览（检查造型用，亮度分级）====
-if (SHOW_PREVIEW) {
-  console.log(lib.asciiPreview(fs.readFileSync(OUT_PNG)));
-}
+if (SHOW_PREVIEW) console.log(lib.asciiPreview(png256));
