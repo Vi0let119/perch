@@ -14,3 +14,4 @@ build-tests/
 
 # 会话/编辑器临时文件
 .zcode/
+icon-candidates/

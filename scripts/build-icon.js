@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { PNG } = require('pngjs');
+const lib = require('./icon-lib');
 
 const ROOT = path.join(__dirname, '..');
 const OUT_PNG = path.join(ROOT, 'assets', 'icon.png');
@@ -155,25 +156,7 @@ images.forEach((img, i) => {
 fs.writeFileSync(OUT_ICO, Buffer.concat([header, dir, ...images.map((i) => i.data)]));
 console.log('已生成', OUT_ICO, `（${sizes.join('/')}）`);
 
-// ==== ASCII 预览（检查造型用）====
+// ==== ASCII 预览（检查造型用，亮度分级）====
 if (SHOW_PREVIEW) {
-  const png = PNG.sync.read(fs.readFileSync(OUT_PNG));
-  const N = 46, step = png.width / N;
-  let art = '';
-  for (let gy = 0; gy < N; gy++) {
-    let row = '';
-    for (let gx = 0; gx < N; gx++) {
-      let r = 0, g = 0, b = 0, a = 0, n = 0;
-      for (let y = Math.floor(gy * step); y < Math.floor((gy + 1) * step); y++) {
-        for (let x = Math.floor(gx * step); x < Math.floor((gx + 1) * step); x++) {
-          const i = (y * png.width + x) * 4;
-          r += png.data[i]; g += png.data[i + 1]; b += png.data[i + 2]; a += png.data[i + 3]; n++;
-        }
-      }
-      r /= n; g /= n; b /= n; a /= n;
-      row += a < 60 ? ' ' : r > 230 && g > 230 && b > 230 ? '#' : a > 200 ? '.' : '+';
-    }
-    art += row + '\n';
-  }
-  console.log(art + '图例: 空格=透明  .=粉底  #=白色(小鸟/横杆)');
+  console.log(lib.asciiPreview(fs.readFileSync(OUT_PNG)));
 }

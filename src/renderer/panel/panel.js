@@ -4,7 +4,7 @@ const $$ = (sel) => [...document.querySelectorAll(sel)];
 const rpc = window.api;
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
-const MODE_NAME = { daily: '每日', weekly: '每周', once: '单次' };
+const MODE_NAME = { daily: '每日', weekly: '每周', once: '单次', fitness: '健身' };
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -323,8 +323,109 @@ function setWeekdaySelection(days) {
   $$('#weekly-days input').forEach((i) => (i.checked = (days || []).includes(Number(i.value))));
 }
 
+// 健身轮换卡片：渲染与操作（计划管理页）
+let fitnessConfig = null;
+
+async function renderFitness() {
+  fitnessConfig = await rpc.fitnessGet();
+  const { enabled, items, index } = fitnessConfig;
+  $('fit-enabled').checked = !!enabled;
+
+  // 当前指针行
+  const hasItems = (items || []).length > 0;
+  $('fitness-now').textContent = enabled && hasItems
+    ? `当前轮到：${items[index].name}（第 ${index + 1} / ${items.length} 个）`
+    : '当前轮到：—';
+  $('fitness-now-sub').textContent = enabled && hasItems ? items[index].note || '' : '';
+  for (const id of ['fitness-prev', 'fitness-next', 'fitness-reset']) $(id).disabled = !enabled || !hasItems;
+
+  // 序列列表
+  const box = $('fitness-items');
+  box.innerHTML = '';
+  if (!hasItems) {
+    box.innerHTML = '<div class="empty">序列为空，先在下面添加部位（如 练胸 / 练背 / 休息）</div>';
+    return;
+  }
+  items.forEach((it, i) => {
+    const row = document.createElement('div');
+    row.className = 'task-line';
+    const idx = document.createElement('span');
+    idx.className = 'chip mode';
+    idx.textContent = String(i + 1);
+    row.appendChild(idx);
+
+    const main = document.createElement('div');
+    main.className = 't-main';
+    const title = document.createElement('div');
+    title.className = 't-title';
+    title.textContent = it.name + (i === index ? '  ← 当前' : '');
+    main.appendChild(title);
+    if (it.note) {
+      const note = document.createElement('div');
+      note.className = 't-note';
+      note.textContent = it.note;
+      main.appendChild(note);
+    }
+    row.appendChild(main);
+
+    const mkBtn = (label, title2, fn, cls = 'icon-btn') => {
+      const b = document.createElement('button');
+      b.className = cls;
+      b.textContent = label;
+      b.title = title2;
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const saveItems = (arr) => rpc.fitnessSave({ items: arr }).then(() => renderFitness());
+
+    row.appendChild(mkBtn('↑', '上移', () => {
+      if (i === 0) return;
+      const arr = [...items];
+      [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
+      saveItems(arr);
+    }));
+    row.appendChild(mkBtn('↓', '下移', () => {
+      if (i === items.length - 1) return;
+      const arr = [...items];
+      [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
+      saveItems(arr);
+    }));
+    row.appendChild(mkBtn('删除', '删除该项', async () => {
+      if (!confirm(`删除「${it.name}」？`)) return;
+      saveItems(items.filter((_, j) => j !== i));
+    }, 'icon-btn danger'));
+
+    container_append(row);
+  });
+
+  function container_append(el) { $('fitness-items').appendChild(el); }
+}
+
+async function bindFitness() {
+  $('fit-enabled').addEventListener('change', async (e) => {
+    await rpc.fitnessSave({ enabled: e.target.checked });
+    await renderFitness();
+    toast(e.target.checked ? '健身轮换已启用' : '健身轮换已停用');
+  });
+  $('fitness-prev').addEventListener('click', async () => { await rpc.fitnessAdvance(-1); await renderFitness(); });
+  $('fitness-next').addEventListener('click', async () => { await rpc.fitnessAdvance(1); await renderFitness(); });
+  $('fitness-reset').addEventListener('click', async () => { await rpc.fitnessSetIndex(0); await renderFitness(); });
+  $('fit-item-add').addEventListener('click', async () => {
+    const name = $('fit-item-name').value.trim();
+    if (!name) return toast('请先填部位名称', true);
+    const cfg = await rpc.fitnessGet();
+    const items = [...(cfg.items || []), { name, note: $('fit-item-note').value.trim() }];
+    await rpc.fitnessSave({ items });
+    $('fit-item-name').value = '';
+    $('fit-item-note').value = '';
+    await renderFitness();
+    toast(`已添加「${name}」`);
+  });
+}
+
 async function renderPlanLists() {
   const plans = await rpc.getPlans();
+  await renderFitness();
   $('num-daily').textContent = plans.daily.length || '';
   $('num-weekly').textContent = plans.weekly.length || '';
   $('num-once').textContent = plans.once.length || '';
@@ -921,6 +1022,7 @@ function bind() {
   $('open-data').addEventListener('click', () => rpc.openDataDir());
   $('quit-app').addEventListener('click', () => rpc.quitApp());
 
+  bindFitness();
   rpc.on('panel:navigate', (tab) => switchTab(tab));
   rpc.on('plans-changed', () => {
     renderedOnce.today = false;

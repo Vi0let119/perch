@@ -37,6 +37,12 @@ contextBridge.exposeInMainWorld('api', {
   resetReminder: () => ipcRenderer.invoke('reminder:reset'),
   getBubbleState: () => ipcRenderer.invoke('bubble:state'),
 
+  // 健身轮换
+  fitnessGet: () => ipcRenderer.invoke('fitness:get'),
+  fitnessSave: (patch) => ipcRenderer.invoke('fitness:save', patch),
+  fitnessAdvance: (dir) => ipcRenderer.invoke('fitness:advance', dir),
+  fitnessSetIndex: (i) => ipcRenderer.invoke('fitness:set-index', i),
+
   // 桌宠运行时
   petRuntime: () => ipcRenderer.invoke('pet:runtime'),
   petClick: () => ipcRenderer.invoke('pet:click'),

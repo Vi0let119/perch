@@ -1,10 +1,12 @@
 // 分钟级调度：计算气泡展示内容（进行中 + 全天 + 已过期 + 下一条预告）+ 空闲随机提醒
 const schema = require('../shared/schema');
+const { FitnessManager } = require('./fitness');
 
 class Scheduler {
-  constructor(planManager, settings) {
+  constructor(planManager, settings, fitness) {
     this.pm = planManager;
     this.settings = settings;
+    this.fitness = fitness;
     this.lastCurrentIds = new Set();
     this.timer = null;
     this.listeners = new Set();
@@ -71,6 +73,9 @@ class Scheduler {
     const dk = this.pm.dateKey(now);
     const minutes = this.pm.nowMinutes(now);
     const items = this.pm.resolveDay(dk);
+    // 健身轮换：启用时当天始终显示当前部位（全天任务；勾选完成由 checked:set 推进指针）
+    const fit = this.fitness && this.fitness.dayItem(this.pm, dk);
+    if (fit) items.push(fit);
     const pending = items.filter((i) => !i.checked);
 
     const timed = pending.filter((i) => !i.allDay);

@@ -5,6 +5,7 @@ const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, clipboard } =
 const { pathToFileURL } = require('url');
 const { Store } = require('./store');
 const { PlanManager } = require('./plans');
+const { FitnessManager, FITNESS_ID } = require('./fitness');
 const { PackManager } = require('./packs');
 const { Scheduler } = require('./scheduler');
 const { WindowManager } = require('./windows');
@@ -86,7 +87,7 @@ function boot() {
     },
   });
 
-  let planManager, packManager, scheduler, win, tray;
+  let planManager, packManager, scheduler, win, tray, fitness;
   let quitting = false;
 
   app.on('second-instance', () => win && win.showPanel('plans'));
@@ -97,6 +98,7 @@ function boot() {
     const userData = app.getPath('userData');
     const builtinPacks = app.isPackaged ? path.join(process.resourcesPath, 'packs') : path.join(ROOT, 'assets', 'packs');
     planManager = new PlanManager(userData);
+    fitness = new FitnessManager(userData);
     packManager = new PackManager(builtinPacks, path.join(userData, 'packs'));
     packManager.migratePacks();   // 补全早期导入的包（水印默认隐藏 / 手部参数校正）
     // 启动时校验激活的资源包是否仍存在（被删除则回退到内置 luoxi）
@@ -105,7 +107,7 @@ function boot() {
       const check = packManager.loadPack(s.packId);
       if (!check.manifest) settings.update({ packId: 'luoxi' });
     }
-    scheduler = new Scheduler(planManager, settings);
+    scheduler = new Scheduler(planManager, settings, fitness);
     win = new WindowManager({
       settings,
       scheduler,
@@ -205,11 +207,36 @@ function boot() {
     });
     ipcMain.handle('checked:set', (e, id, dk, val) => {
       planManager.setChecked(id, dk, val);
+      // 健身轮换：勾选完成 = 推进到下一个部位（取消勾选不回退，指针可在面板手动调整）
+      if (id === FITNESS_ID && val) fitness.advance(1);
       changed();
       return ok();
     });
-    ipcMain.handle('day:get', (e, dk) => planManager.resolveDay(dk));
+    ipcMain.handle('day:get', (e, dk) => {
+      const items = planManager.resolveDay(dk);
+      const fit = fitness.dayItem(planManager, dk);
+      if (fit) items.push(fit);
+      return items;
+    });
     ipcMain.handle('month:get', (e, y, m) => planManager.resolveMonth(y, m));
+
+    // ---- 健身轮换 ----
+    ipcMain.handle('fitness:get', () => fitness.get());
+    ipcMain.handle('fitness:save', (e, patch) => {
+      fitness.set(patch || {});
+      changed();
+      return { ok: true, config: fitness.get() };
+    });
+    ipcMain.handle('fitness:advance', (e, dir) => {
+      fitness.advance(Number(dir) || 1);
+      changed();
+      return { ok: true, config: fitness.get() };
+    });
+    ipcMain.handle('fitness:set-index', (e, i) => {
+      fitness.setIndex(Number(i) || 0);
+      changed();
+      return { ok: true, config: fitness.get() };
+    });
     ipcMain.handle('plans:export', () => planManager.exportJson());
 
     ipcMain.handle('plans:import', (e, text, strategy) => {

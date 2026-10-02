@@ -77,7 +77,30 @@
     <!-- 计划管理 -->
     <section class="tab" id="tab-plans">
       <h2 class="tab-title">计划管理</h2>
-      <div class="tab-sub">管理三类重复规划，也可以在「JSON 导入导出」里批量写入</div>
+      <div class="tab-sub">管理重复规划与健身轮换，也可以在「JSON 导入导出」里批量写入</div>
+
+      <div class="card" id="fitness-card">
+        <h3>🏋️ 健身轮换</h3>
+        <div class="tab-sub">按顺序轮换部位；<b>勾选完成才推进</b>到下一个，没练完自动搁置到第二天。可在序列里加「休息」项。</div>
+        <div class="set-row">
+          <div class="set-label"><b>启用</b><span>启用后当天任务里始终显示当前部位</span></div>
+          <label class="switch"><input type="checkbox" id="fit-enabled" /><i></i></label>
+        </div>
+        <div class="set-row" id="fitness-now-row">
+          <div class="set-label"><b id="fitness-now">当前轮到：—</b><span id="fitness-now-sub"></span></div>
+          <div style="display:flex;gap:6px">
+            <button class="btn ghost" id="fitness-prev" title="手动回退">◀</button>
+            <button class="btn ghost" id="fitness-next" title="手动推进">▶</button>
+            <button class="btn ghost" id="fitness-reset" title="回到第一个">重置</button>
+          </div>
+        </div>
+        <div id="fitness-items"></div>
+        <div class="form-row">
+          <input type="text" id="fit-item-name" placeholder="部位名称（如 练胸 / 休息）" maxlength="30" style="width:180px" />
+          <input type="text" id="fit-item-note" placeholder="备注（可选，如 卧推/飞鸟）" maxlength="60" style="flex:1;min-width:140px" />
+          <button class="btn" id="fit-item-add">添加</button>
+        </div>
+      </div>
 
       <div class="card">
         <h3>🔁 每日重复 <span class="badge-num" id="num-daily"></span></h3>
